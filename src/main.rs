@@ -4,9 +4,7 @@ use rouille::Request;
 use rouille::Response;
 use rusqlite::Connection;
 use serde::Serialize;
-use std::fmt;
 use std::fs;
-use std::ops::Index;
 use uuid::Uuid;
 
 #[derive(Serialize, Copy, Clone)]
@@ -25,7 +23,6 @@ struct CharMatch {
 
 struct Game {
     word: String,
-    goes: u32,
     solved: bool,
 }
 
@@ -77,7 +74,6 @@ fn handle_play(game_id: &str, guess: &str) -> Response {
         |row| {
             Ok(Game {
                 word: row.get_unwrap(1),
-                goes: row.get_unwrap(2),
                 solved: row.get_unwrap(3),
             })
         },
