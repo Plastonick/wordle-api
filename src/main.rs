@@ -1,3 +1,6 @@
+mod answers;
+mod words;
+
 use rand::Rng;
 use rouille::router;
 use rouille::Request;
@@ -12,6 +15,11 @@ enum MatchType {
     Perfect,
     Partial,
     None,
+}
+
+enum WordList {
+    Answers,
+    Everything,
 }
 
 #[derive(Serialize, Copy, Clone)]
@@ -88,9 +96,9 @@ fn handle_play(game_id: &str, guess: &str) -> Response {
         return Response::text("It's already been solved!");
     }
 
-    let words = get_words("words.txt");
+    let words = words::FILE_CONTENT;
 
-    if !words.contains(&guess.to_string()) {
+    if !words.contains(&guess) {
         return Response::text(format!("'{guess}' is not a valid guess")).with_status_code(400);
     }
 
@@ -109,7 +117,7 @@ fn handle_new_game() -> Response {
     let conn = get_connection();
     let game_id: Uuid = Uuid::new_v4();
 
-    let random_answer = random_word("answers.txt");
+    let random_answer = random_word(WordList::Answers);
     conn.execute(
         "INSERT INTO game (game_id, word, goes) VALUES (?1, ?2, ?3)",
         (&game_id.to_string(), &random_answer, 0),
@@ -132,13 +140,16 @@ fn get_words(list_path: &str) -> Vec<String> {
         .collect::<Vec<String>>()
 }
 
-fn random_word(list_path: &str) -> String {
-    let answers = get_words(list_path);
+fn random_word(word_list: WordList) -> String {
+    let words = match word_list {
+        WordList::Answers => answers::FILE_CONTENT,
+        WordList::Everything => words::FILE_CONTENT,
+    };
 
     let mut rng = rand::thread_rng();
-    let random_index = rng.gen_range(0..answers.len());
+    let random_index = rng.gen_range(0..words.len());
 
-    answers[random_index].clone()
+    words[random_index].to_string()
 }
 
 fn get_connection() -> Connection {
