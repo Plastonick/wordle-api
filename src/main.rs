@@ -59,11 +59,40 @@ fn main() {
 
 fn handle_request(request: &Request) -> Response {
     router!(request,
+        (GET) (/) => { handle_root() },
+
         (GET) (/play/{game_id: String}/guess/{guess: String}) => { handle_play(&game_id, &guess) },
 
         (GET) (/create) => { handle_new_game() },
 
         _ => Response::empty_404()
+    )
+}
+
+fn handle_root() -> Response {
+    Response::html(
+        r#"<h1>Welcome to the Wordle-API!</h1>
+<p>You can create a new game, or guess a word for a current game:</p>
+<h3>GET /create</h3>
+
+=> <pre><code>{ "game_id": &lt;game_id> }</code></pre>
+
+
+<h3>GET /play/&lt;game_id>/guess/&lt;word></h3>
+
+=> <pre><code>{ 
+    "solved": &lt;bool: solved status>,
+    "guess": &lt;string: word>,
+    "evaluation": [
+        {
+            "index": &lt;int: index of char in word>,
+            "character": &lt;string: character>,
+            "match_type": &lt;enum of string: ["None", "Partial", "Perfect"]>
+        },
+        ...
+    ]
+}</code></pre>
+"#,
     )
 }
 
