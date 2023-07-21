@@ -7,7 +7,6 @@ use rouille::Request;
 use rouille::Response;
 use rusqlite::Connection;
 use serde::Serialize;
-use std::fs;
 use uuid::Uuid;
 
 #[derive(Serialize, Copy, Clone)]
@@ -15,11 +14,6 @@ enum MatchType {
     Perfect,
     Partial,
     None,
-}
-
-enum WordList {
-    Answers,
-    Everything,
 }
 
 #[derive(Serialize, Copy, Clone)]
@@ -117,7 +111,7 @@ fn handle_new_game() -> Response {
     let conn = get_connection();
     let game_id: Uuid = Uuid::new_v4();
 
-    let random_answer = random_word(WordList::Answers);
+    let random_answer = random_answer();
     conn.execute(
         "INSERT INTO game (game_id, word, goes) VALUES (?1, ?2, ?3)",
         (&game_id.to_string(), &random_answer, 0),
@@ -132,19 +126,8 @@ fn handle_new_game() -> Response {
     )
 }
 
-fn get_words(list_path: &str) -> Vec<String> {
-    fs::read_to_string(list_path)
-        .unwrap()
-        .lines()
-        .map(|x| String::from(x))
-        .collect::<Vec<String>>()
-}
-
-fn random_word(word_list: WordList) -> String {
-    let words = match word_list {
-        WordList::Answers => answers::FILE_CONTENT,
-        WordList::Everything => words::FILE_CONTENT,
-    };
+fn random_answer() -> String {
+    let words = answers::FILE_CONTENT;
 
     let mut rng = rand::thread_rng();
     let random_index = rng.gen_range(0..words.len());
