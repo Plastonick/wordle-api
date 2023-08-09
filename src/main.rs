@@ -254,6 +254,10 @@ fn evaluate_guess(game: &Game, guess: &str) -> Answer {
 
     // find the partial matches
     guess.chars().enumerate().for_each(|(i, guess_char)| {
+        if word_chars[i] == '_' {
+            return;
+        }
+
         let word_index_match = word_chars.iter().position(|&x| x == guess_char);
 
         if let Some(word_index) = word_index_match {
