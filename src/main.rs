@@ -28,6 +28,14 @@ struct Game {
     solved: bool,
 }
 
+#[derive(Serialize, Clone)]
+struct ClientStats {
+    client: String,
+    avg_goes: f64,
+    max_goes: usize,
+    num_games: usize,
+}
+
 #[derive(Serialize)]
 struct GameIdentity {
     game_id: String,
@@ -46,6 +54,7 @@ fn main() {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS game (
             game_id TEXT NOT NULL,
+            client  TEXT NOT NULL,
             word    TEXT NOT NULL,
             goes    INTEGER DEFAULT 0,
             solved  INTEGER DEFAULT 0
@@ -61,9 +70,11 @@ fn handle_request(request: &Request) -> Response {
     router!(request,
         (GET) (/) => { handle_root() },
 
+        (GET) (/stats) => { handle_stats() },
+
         (GET) (/play/{game_id: String}/guess/{guess: String}) => { handle_play(&game_id, &guess) },
 
-        (GET) (/create) => { handle_new_game() },
+        (GET) (/create/{client: String}) => { handle_new_game(&client) },
 
         _ => Response::empty_404()
     )
@@ -73,7 +84,8 @@ fn handle_root() -> Response {
     Response::html(
         r#"<h1>Welcome to the Wordle-API!</h1>
 <p>You can create a new game, or guess a word for a current game:</p>
-<h3>GET /create</h3>
+<h3>GET /create/&lt;client></h3>
+<p>Client is your unique identifier, it can be any string</p>
 
 => <pre><code>{ "game_id": &lt;game_id> }</code></pre>
 
@@ -94,6 +106,27 @@ fn handle_root() -> Response {
 }</code></pre>
 "#,
     )
+}
+
+fn handle_stats() -> Response {
+    let conn = get_connection();
+
+    let mut result = conn.prepare("SELECT client, AVG(goes) AS avg_goes, MAX(goes) AS max_goes, COUNT(1) AS num_games FROM game GROUP BY client").unwrap();
+
+    let stats = result
+        .query_map([], |row| {
+            Ok(ClientStats {
+                client: row.get_unwrap(0),
+                avg_goes: row.get_unwrap(1),
+                max_goes: row.get_unwrap(2),
+                num_games: row.get_unwrap(3),
+            })
+        })
+        .unwrap()
+        .map(|x| x.unwrap())
+        .collect::<Vec<_>>();
+
+    Response::text(serde_json::to_string_pretty(&stats).unwrap())
 }
 
 fn handle_play(game_id: &str, guess: &str) -> Response {
@@ -136,14 +169,14 @@ fn handle_play(game_id: &str, guess: &str) -> Response {
     Response::text(serde_json::to_string_pretty(&answer).unwrap())
 }
 
-fn handle_new_game() -> Response {
+fn handle_new_game(client: &String) -> Response {
     let conn = get_connection();
     let game_id: Uuid = Uuid::new_v4();
 
     let random_answer = random_answer();
     conn.execute(
-        "INSERT INTO game (game_id, word, goes) VALUES (?1, ?2, ?3)",
-        (&game_id.to_string(), &random_answer, 0),
+        "INSERT INTO game (game_id, client, word, goes) VALUES (?1, ?2, ?3, ?4)",
+        (&game_id.to_string(), &client, &random_answer, 0),
     )
     .unwrap();
 
