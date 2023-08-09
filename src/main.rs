@@ -25,14 +25,16 @@ struct CharMatch {
 
 struct Game {
     word: String,
+    goes: usize,
     solved: bool,
 }
 
 #[derive(Serialize, Clone)]
 struct ClientStats {
     client: String,
-    avg_goes: f64,
-    max_goes: usize,
+    avg_goes: Option<f64>,
+    max_goes: Option<usize>,
+    num_solved: usize,
     num_games: usize,
 }
 
@@ -44,7 +46,9 @@ struct GameIdentity {
 #[derive(Serialize)]
 struct Answer {
     solved: bool,
+    answer: Option<String>,
     guess: String,
+    goes: usize,
     evaluation: Vec<CharMatch>,
 }
 
@@ -111,7 +115,17 @@ fn handle_root() -> Response {
 fn handle_stats() -> Response {
     let conn = get_connection();
 
-    let mut result = conn.prepare("SELECT client, AVG(goes) AS avg_goes, MAX(goes) AS max_goes, COUNT(1) AS num_games FROM game GROUP BY client").unwrap();
+    let query = "
+SELECT client, 
+    AVG(CASE WHEN solved = 1 THEN goes END) AS avg_goes, 
+    MAX(CASE WHEN solved = 1 THEN goes END) AS max_goes, 
+    SUM(solved)                             AS num_solved,
+    COUNT(1)                                AS num_games
+FROM game
+GROUP BY client
+    ";
+
+    let mut result = conn.prepare(query).unwrap();
 
     let stats = result
         .query_map([], |row| {
@@ -119,7 +133,8 @@ fn handle_stats() -> Response {
                 client: row.get_unwrap(0),
                 avg_goes: row.get_unwrap(1),
                 max_goes: row.get_unwrap(2),
-                num_games: row.get_unwrap(3),
+                num_solved: row.get_unwrap(3),
+                num_games: row.get_unwrap(4),
             })
         })
         .unwrap()
@@ -138,6 +153,7 @@ fn handle_play(game_id: &str, guess: &str) -> Response {
         |row| {
             Ok(Game {
                 word: row.get_unwrap(1),
+                goes: row.get_unwrap(2),
                 solved: row.get_unwrap(3),
             })
         },
@@ -149,7 +165,15 @@ fn handle_play(game_id: &str, guess: &str) -> Response {
 
     let game = game_result.unwrap();
     if game.solved {
-        return Response::text("It's already been solved!");
+        let answer = Answer {
+            solved: true,
+            answer: Some(game.word),
+            guess: String::from(guess),
+            goes: game.goes,
+            evaluation: Vec::new(),
+        };
+
+        return Response::text(serde_json::to_string_pretty(&answer).unwrap());
     }
 
     let words = words::FILE_CONTENT;
@@ -158,7 +182,7 @@ fn handle_play(game_id: &str, guess: &str) -> Response {
         return Response::text(format!("'{guess}' is not a valid guess")).with_status_code(400);
     }
 
-    let answer = evaluate_guess(&game.word, &guess);
+    let answer = evaluate_guess(&game, &guess);
 
     conn.execute(
         "UPDATE game SET goes = goes + 1, solved = ?1 WHERE game_id = ?2",
@@ -201,8 +225,8 @@ fn get_connection() -> Connection {
     Connection::open("wordle.db").unwrap()
 }
 
-fn evaluate_guess(word: &str, guess: &str) -> Answer {
-    let mut word_chars = word.chars().collect::<Vec<char>>();
+fn evaluate_guess(game: &Game, guess: &str) -> Answer {
+    let mut word_chars = game.word.chars().collect::<Vec<char>>();
     let mut evaluation = guess
         .chars()
         .clone()
@@ -245,8 +269,14 @@ fn evaluate_guess(word: &str, guess: &str) -> Answer {
     });
 
     Answer {
-        solved: word.eq(guess),
+        solved: game.word.eq(guess),
+        answer: if game.word.eq(guess) {
+            Some(String::from(&game.word))
+        } else {
+            None
+        },
         guess: guess.to_string(),
+        goes: game.goes + 1,
         evaluation,
     }
 }
