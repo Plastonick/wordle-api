@@ -292,125 +292,162 @@ fn evaluate_guess(game: &Game, guess: &str) -> Answer {
 mod tests {
     use crate::{evaluate_guess, Game, MatchType};
 
-    #[test]
-    fn test_correct_evaluation() {
-        let test_cases = [
-            (
-                "owler",
-                "mower",
-                vec![
-                    MatchType::Partial,
-                    MatchType::Partial,
-                    MatchType::None,
-                    MatchType::Perfect,
-                    MatchType::Perfect,
-                ],
-            ),
-            (
-                "cauld",
-                "salad",
-                vec![
-                    MatchType::None,
-                    MatchType::Perfect,
-                    MatchType::None,
-                    MatchType::Partial,
-                    MatchType::Perfect,
-                ],
-            ),
-            (
-                "llama",
-                "hello",
-                vec![
-                    MatchType::Partial,
-                    MatchType::Partial,
-                    MatchType::None,
-                    MatchType::None,
-                    MatchType::None,
-                ],
-            ),
-            (
-                "hello",
-                "llama",
-                vec![
-                    MatchType::None,
-                    MatchType::None,
-                    MatchType::Partial,
-                    MatchType::Partial,
-                    MatchType::None,
-                ],
-            ),
-            (
-                "allan",
-                "llama",
-                vec![
-                    MatchType::Partial,
-                    MatchType::Perfect,
-                    MatchType::Partial,
-                    MatchType::Partial,
-                    MatchType::None,
-                ],
-            ),
-            (
-                "camel",
-                "shout",
-                vec![
-                    MatchType::None,
-                    MatchType::None,
-                    MatchType::None,
-                    MatchType::None,
-                    MatchType::None,
-                ],
-            ),
-            (
-                "camel",
-                "camel",
-                vec![
-                    MatchType::Perfect,
-                    MatchType::Perfect,
-                    MatchType::Perfect,
-                    MatchType::Perfect,
-                    MatchType::Perfect,
-                ],
-            ),
-            (
-                "allan",
-                "allan",
-                vec![
-                    MatchType::Perfect,
-                    MatchType::Perfect,
-                    MatchType::Perfect,
-                    MatchType::Perfect,
-                    MatchType::Perfect,
-                ],
-            ),
-            (
-                "vegan",
-                "moral",
-                vec![
-                    MatchType::None,
-                    MatchType::None,
-                    MatchType::None,
-                    MatchType::Perfect,
-                    MatchType::None,
-                ],
-            ),
-        ];
+    macro_rules! evaluation_test {
+        ($($name:ident: $value:expr,)*) => {
+        $(
+            #[test]
+            fn $name() {
+                let (guess, target, expected) = $value;
 
-        test_cases.map(|(guess, target, expected)| {
-            let game = Game {
-                word: String::from(target),
-                goes: 0,
-                solved: false,
-            };
+                let game = Game {
+                    word: String::from(target),
+                    goes: 0,
+                    solved: false,
+                };
 
-            let answer = evaluate_guess(&game, &guess);
-            let actual = answer
-                .evaluation
-                .iter()
-                .map(|x| x.match_type)
-                .collect::<Vec<_>>();
+                let answer = evaluate_guess(&game, &guess);
+                let actual = answer
+                    .evaluation
+                    .iter()
+                    .map(|x| x.match_type)
+                    .collect::<Vec<_>>();
 
-            assert_eq!(actual, expected, "Guess '{guess}' for word '{target}'")
-        });
+                assert_eq!(actual, expected, "Guess '{guess}' for word '{target}'")
+            }
+        )*
+        }
+    }
+
+    evaluation_test! {
+        eval_0: (
+            "owler",
+            "mower",
+            vec![
+                MatchType::Partial,
+                MatchType::Partial,
+                MatchType::None,
+                MatchType::Perfect,
+                MatchType::Perfect,
+            ],
+        ),
+        eval_1: (
+            "cauld",
+            "salad",
+            vec![
+                MatchType::None,
+                MatchType::Perfect,
+                MatchType::None,
+                MatchType::Partial,
+                MatchType::Perfect,
+            ],
+        ),
+        eval_2: (
+            "llama",
+            "hello",
+            vec![
+                MatchType::Partial,
+                MatchType::Partial,
+                MatchType::None,
+                MatchType::None,
+                MatchType::None,
+            ],
+        ),
+        eval_3: (
+            "hello",
+            "llama",
+            vec![
+                MatchType::None,
+                MatchType::None,
+                MatchType::Partial,
+                MatchType::Partial,
+                MatchType::None,
+            ],
+        ),
+        eval_4: (
+            "allan",
+            "llama",
+            vec![
+                MatchType::Partial,
+                MatchType::Perfect,
+                MatchType::Partial,
+                MatchType::Partial,
+                MatchType::None,
+            ],
+        ),
+        eval_5: (
+            "camel",
+            "shout",
+            vec![
+                MatchType::None,
+                MatchType::None,
+                MatchType::None,
+                MatchType::None,
+                MatchType::None,
+            ],
+        ),
+        eval_6: (
+            "camel",
+            "camel",
+            vec![
+                MatchType::Perfect,
+                MatchType::Perfect,
+                MatchType::Perfect,
+                MatchType::Perfect,
+                MatchType::Perfect,
+            ],
+        ),
+        eval_7: (
+            "allan",
+            "allan",
+            vec![
+                MatchType::Perfect,
+                MatchType::Perfect,
+                MatchType::Perfect,
+                MatchType::Perfect,
+                MatchType::Perfect,
+            ],
+        ),
+        eval_8: (
+            "vegan",
+            "moral",
+            vec![
+                MatchType::None,
+                MatchType::None,
+                MatchType::None,
+                MatchType::Perfect,
+                MatchType::None,
+            ],
+        ),
+        eval_9: (
+            "oggol",
+            "googl",
+            vec![
+                MatchType::Partial,
+                MatchType::Partial,
+                MatchType::Partial,
+                MatchType::Partial,
+                MatchType::Perfect,
+            ],
+        ),
+        eval_10: ( // checking only the first of a double letter can match a partial, i.e. second `o` should be no match
+            "look",
+            "omfg",
+            vec![
+                MatchType::None,
+                MatchType::Partial,
+                MatchType::None,
+                MatchType::None,
+            ],
+        ),
+        eval_11: ( // checking a perfectly matched letter cannot be used for a secondary partial match
+            "look",
+            "grok",
+            vec![
+                MatchType::None,
+                MatchType::None,
+                MatchType::Perfect,
+                MatchType::Perfect,
+            ],
+        ),
     }
 }
