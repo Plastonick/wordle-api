@@ -226,6 +226,7 @@ fn get_connection() -> Connection {
 }
 
 fn evaluate_guess(game: &Game, guess: &str) -> Answer {
+    let mut guess_chars_used = guess.chars().into_iter().map(|_| false).collect::<Vec<_>>();
     let mut word_chars = game.word.chars().collect::<Vec<char>>();
     let mut evaluation = guess
         .chars()
@@ -248,13 +249,14 @@ fn evaluate_guess(game: &Game, guess: &str) -> Answer {
             };
 
             // prevent this character being re-used for a match
-            word_chars[i] = '_'
+            word_chars[i] = '_';
+            guess_chars_used[i] = true
         }
     });
 
     // find the partial matches
     guess.chars().enumerate().for_each(|(i, guess_char)| {
-        if word_chars[i] == '_' {
+        if guess_chars_used[i] {
             return;
         }
 
@@ -268,7 +270,8 @@ fn evaluate_guess(game: &Game, guess: &str) -> Answer {
             };
 
             // prevent this character being re-used for a match
-            word_chars[word_index] = '_'
+            word_chars[word_index] = '_';
+            guess_chars_used[i] = true
         }
     });
 
@@ -380,6 +383,17 @@ mod tests {
                     MatchType::Perfect,
                 ],
             ),
+            (
+                "vegan",
+                "moral",
+                vec![
+                    MatchType::None,
+                    MatchType::None,
+                    MatchType::None,
+                    MatchType::Perfect,
+                    MatchType::None,
+                ],
+            ),
         ];
 
         test_cases.map(|(guess, target, expected)| {
@@ -396,7 +410,7 @@ mod tests {
                 .map(|x| x.match_type)
                 .collect::<Vec<_>>();
 
-            assert_eq!(actual, expected)
+            assert_eq!(actual, expected, "Guess '{guess}' for word '{target}'")
         });
     }
 }
