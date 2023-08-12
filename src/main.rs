@@ -9,7 +9,7 @@ use rusqlite::Connection;
 use serde::Serialize;
 use uuid::Uuid;
 
-#[derive(Serialize, Copy, Clone)]
+#[derive(Serialize, Copy, Clone, PartialEq, Debug)]
 enum MatchType {
     Perfect,
     Partial,
@@ -282,5 +282,121 @@ fn evaluate_guess(game: &Game, guess: &str) -> Answer {
         guess: guess.to_string(),
         goes: game.goes + 1,
         evaluation,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{evaluate_guess, Game, MatchType};
+
+    #[test]
+    fn test_correct_evaluation() {
+        let test_cases = [
+            (
+                "owler",
+                "mower",
+                vec![
+                    MatchType::Partial,
+                    MatchType::Partial,
+                    MatchType::None,
+                    MatchType::Perfect,
+                    MatchType::Perfect,
+                ],
+            ),
+            (
+                "cauld",
+                "salad",
+                vec![
+                    MatchType::None,
+                    MatchType::Perfect,
+                    MatchType::None,
+                    MatchType::Partial,
+                    MatchType::Perfect,
+                ],
+            ),
+            (
+                "llama",
+                "hello",
+                vec![
+                    MatchType::Partial,
+                    MatchType::Partial,
+                    MatchType::None,
+                    MatchType::None,
+                    MatchType::None,
+                ],
+            ),
+            (
+                "hello",
+                "llama",
+                vec![
+                    MatchType::None,
+                    MatchType::None,
+                    MatchType::Partial,
+                    MatchType::Partial,
+                    MatchType::None,
+                ],
+            ),
+            (
+                "allan",
+                "llama",
+                vec![
+                    MatchType::Partial,
+                    MatchType::Perfect,
+                    MatchType::Partial,
+                    MatchType::Partial,
+                    MatchType::None,
+                ],
+            ),
+            (
+                "camel",
+                "shout",
+                vec![
+                    MatchType::None,
+                    MatchType::None,
+                    MatchType::None,
+                    MatchType::None,
+                    MatchType::None,
+                ],
+            ),
+            (
+                "camel",
+                "camel",
+                vec![
+                    MatchType::Perfect,
+                    MatchType::Perfect,
+                    MatchType::Perfect,
+                    MatchType::Perfect,
+                    MatchType::Perfect,
+                ],
+            ),
+            (
+                "allan",
+                "allan",
+                vec![
+                    MatchType::Perfect,
+                    MatchType::Perfect,
+                    MatchType::Perfect,
+                    MatchType::Perfect,
+                    MatchType::Perfect,
+                ],
+            ),
+        ];
+
+        test_cases.map(|(guess, target, expected)| {
+            let game = Game {
+                word: String::from(target),
+                goes: 0,
+                solved: false,
+            };
+
+            let answer = evaluate_guess(&game, &guess);
+            let actual = answer
+                .evaluation
+                .iter()
+                .map(|x| x.match_type)
+                .collect::<Vec<_>>();
+
+            assert_eq!(actual, expected)
+        });
     }
 }
