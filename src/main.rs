@@ -182,7 +182,7 @@ fn handle_play(game_id: &str, guess: &str) -> Response {
         return Response::text(format!("'{guess}' is not a valid guess")).with_status_code(400);
     }
 
-    let answer = evaluate_guess(&game, &guess);
+    let answer = play_guess(&game, &guess);
 
     conn.execute(
         "UPDATE game SET goes = goes + 1, solved = ?1 WHERE game_id = ?2",
@@ -225,9 +225,25 @@ fn get_connection() -> Connection {
     Connection::open("wordle.db").unwrap()
 }
 
-fn evaluate_guess(game: &Game, guess: &str) -> Answer {
+fn play_guess(game: &Game, guess: &str) -> Answer {
+    let evaluation = evaluate_guess(&game.word, guess);
+
+    Answer {
+        solved: game.word.eq(guess),
+        answer: if game.word.eq(guess) {
+            Some(String::from(&game.word))
+        } else {
+            None
+        },
+        guess: guess.to_string(),
+        goes: game.goes + 1,
+        evaluation,
+    }
+}
+
+fn evaluate_guess(word: &str, guess: &str) -> Vec<CharMatch> {
     let mut guess_chars_used = guess.chars().into_iter().map(|_| false).collect::<Vec<_>>();
-    let mut word_chars = game.word.chars().collect::<Vec<char>>();
+    let mut word_chars = word.chars().collect::<Vec<char>>();
     let mut evaluation = guess
         .chars()
         .clone()
@@ -275,22 +291,12 @@ fn evaluate_guess(game: &Game, guess: &str) -> Answer {
         }
     });
 
-    Answer {
-        solved: game.word.eq(guess),
-        answer: if game.word.eq(guess) {
-            Some(String::from(&game.word))
-        } else {
-            None
-        },
-        guess: guess.to_string(),
-        goes: game.goes + 1,
-        evaluation,
-    }
+    evaluation
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{evaluate_guess, Game, MatchType};
+    use crate::{evaluate_guess, MatchType};
 
     macro_rules! evaluation_test {
         ($($name:ident: $value:expr,)*) => {
@@ -299,15 +305,8 @@ mod tests {
             fn $name() {
                 let (guess, target, expected) = $value;
 
-                let game = Game {
-                    word: String::from(target),
-                    goes: 0,
-                    solved: false,
-                };
-
-                let answer = evaluate_guess(&game, &guess);
-                let actual = answer
-                    .evaluation
+                let evaluation = evaluate_guess(&String::from(target), &guess);
+                let actual = evaluation
                     .iter()
                     .map(|x| x.match_type)
                     .collect::<Vec<_>>();
@@ -319,18 +318,7 @@ mod tests {
     }
 
     evaluation_test! {
-        eval_0: (
-            "owler",
-            "mower",
-            vec![
-                MatchType::Partial,
-                MatchType::Partial,
-                MatchType::None,
-                MatchType::Perfect,
-                MatchType::Perfect,
-            ],
-        ),
-        eval_1: (
+        eval_01: (
             "cauld",
             "salad",
             vec![
@@ -341,7 +329,7 @@ mod tests {
                 MatchType::Perfect,
             ],
         ),
-        eval_2: (
+        eval_02: (
             "llama",
             "hello",
             vec![
@@ -352,7 +340,7 @@ mod tests {
                 MatchType::None,
             ],
         ),
-        eval_3: (
+        eval_03: (
             "hello",
             "llama",
             vec![
@@ -363,7 +351,7 @@ mod tests {
                 MatchType::None,
             ],
         ),
-        eval_4: (
+        eval_04: (
             "allan",
             "llama",
             vec![
@@ -374,7 +362,7 @@ mod tests {
                 MatchType::None,
             ],
         ),
-        eval_5: (
+        eval_05: (
             "camel",
             "shout",
             vec![
@@ -385,7 +373,7 @@ mod tests {
                 MatchType::None,
             ],
         ),
-        eval_6: (
+        eval_06: (
             "camel",
             "camel",
             vec![
@@ -396,7 +384,7 @@ mod tests {
                 MatchType::Perfect,
             ],
         ),
-        eval_7: (
+        eval_07: (
             "allan",
             "allan",
             vec![
@@ -407,7 +395,7 @@ mod tests {
                 MatchType::Perfect,
             ],
         ),
-        eval_8: (
+        eval_08: (
             "vegan",
             "moral",
             vec![
@@ -418,7 +406,7 @@ mod tests {
                 MatchType::None,
             ],
         ),
-        eval_9: (
+        eval_09: (
             "oggol",
             "googl",
             vec![
@@ -444,6 +432,17 @@ mod tests {
             "grok",
             vec![
                 MatchType::None,
+                MatchType::None,
+                MatchType::Perfect,
+                MatchType::Perfect,
+            ],
+        ),
+        eval_12: (
+            "owler",
+            "mower",
+            vec![
+                MatchType::Partial,
+                MatchType::Partial,
                 MatchType::None,
                 MatchType::Perfect,
                 MatchType::Perfect,
